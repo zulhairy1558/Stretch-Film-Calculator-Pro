@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stretch Film Calculator Pro</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <!-- Theme color for mobile browsers -->
+  <meta name="theme-color" content="#1A73E8">
+  <!-- Apple touch icon (optional, for iOS home screen) -->
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="8" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2.5" fill="currentColor"/>
+          <line x1="16" y1="2" x2="16" y2="8" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="16" y1="24" x2="16" y2="30" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="2" y1="16" x2="8" y2="16" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="24" y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>STRETCH FILM CALCULATOR</h1>
+        <span class="brand-sub">Professional Film Properties &amp; Performance</span>
+      </div>
+    </div>
+    <div class="header-badge">PRO v2.0</div>
+    <button id="installBtn" class="header-badge" style="display: none; background: var(--accent); color: white; border: none; cursor: pointer;">📲 INSTALL APP</button>
+  </header>
+
+  <!-- ═══ TAB NAVIGATION ═══ -->
+  <nav class="tab-nav" role="tablist">
+    <div class="tab-group">
+      <span class="tab-group-label">FILM PROPERTIES</span>
+      <button class="tab-btn active" role="tab" data-tab="weight" aria-selected="true">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3zM3 10a7 7 0 1114 0A7 7 0 013 10z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 7v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>WEIGHT</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="roll-diameter" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>ROLL ⌀</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="film-length-geo" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M3 10h14M13 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>LENGTH/⌀</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="film-length-weight" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M5 17l5-10 5 10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.5 13.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>LENGTH/WT</span>
+      </button>
+    </div>
+    <div class="tab-group">
+      <span class="tab-group-label">PERFORMANCE</span>
+      <button class="tab-btn" role="tab" data-tab="decel" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="4" y1="6" x2="4" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>DECEL</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="wrap-speed" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M10 3C6.13 3 3 6.13 3 10s3.13 7 7 7 7-3.13 7-7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M17 3l-3 3 3 3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>WRAP SPD</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="test-height" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M3 17L10 5l7 12" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="17" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>TEST HT</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="friction" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M3 14l6-8 5 6 3-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>FRICTION</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══ TAB CONTENT ═══ -->
+  <main class="tab-content">
+
+    <!-- ══ PANEL 1: WEIGHT CALCULATOR ══ -->
+    <section class="tab-panel active" id="panel-weight" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">WEIGHT CALCULATOR</h2>
+          <p class="panel-desc">Net &amp; gross weight with upper / lower tolerance bands</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">W<sub>net</sub> = T × W × L × ρ</span>
+        </div>
+      </div>
+      <div class="calc-layout">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="w-thickness">Film Thickness <span class="unit-tag">µm</span></label>
+              <input type="number" id="w-thickness" placeholder="0.020" step="0.001" min="0">
+              <span class="field-hint">e.g. 20 µm = 0.020 mm</span>
+            </div>
+            <div class="field">
+              <label for="w-width">Film Width <span class="unit-tag">mm</span></label>
+              <input type="number" id="w-width" placeholder="500" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="w-length">Film Length <span class="unit-tag">m</span></label>
+              <input type="number" id="w-length" placeholder="1000" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="w-coreweight">Core Weight <span class="unit-tag">kg</span></label>
+              <input type="number" id="w-coreweight" placeholder="0.250" step="0.001" min="0">
+            </div>
+            <div class="field">
+              <label for="w-density">Density <span class="unit-tag">g/m³</span></label>
+              <input type="number" id="w-density" placeholder="920" step="1" min="0">
+              <span class="field-hint">LLDPE ≈ 920 | LDPE ≈ 910 (g/m³)</span>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="w-upper-tol">Upper Tol. <span class="unit-tag">%</span></label>
+                <input type="number" id="w-upper-tol" placeholder="2" step="0.1" min="0">
+              </div>
+              <div class="field">
+                <label for="w-lower-tol">Lower Tol. <span class="unit-tag">%</span></label>
+                <input type="number" id="w-lower-tol" placeholder="2" step="0.1" min="0">
+              </div>
+            </div>
+          </div>
+          <button class="btn-clear" id="w-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULTS</div>
+          <div class="result-main">
+            <div class="result-item primary">
+              <span class="result-label">Net Weight <em>kg</em></span>
+              <div class="result-val" id="w-netweight">—</div>
+            </div>
+            <div class="result-item primary">
+              <span class="result-label">Gross Weight <em>kg</em></span>
+              <div class="result-val" id="w-grossweight">—</div>
+            </div>
+          </div>
+          <div class="result-divider">TOLERANCE BANDS</div>
+          <div class="result-grid-2">
+            <div class="result-item tol-up">
+              <span class="result-label">Upper Net Wt <em>kg</em></span>
+              <div class="result-val" id="w-upper-netweight">—</div>
+            </div>
+            <div class="result-item tol-down">
+              <span class="result-label">Lower Net Wt <em>kg</em></span>
+              <div class="result-val" id="w-lower-netweight">—</div>
+            </div>
+            <div class="result-item tol-up">
+              <span class="result-label">Upper Gross Wt <em>kg</em></span>
+              <div class="result-val" id="w-upper-grossweight">—</div>
+            </div>
+            <div class="result-item tol-down">
+              <span class="result-label">Lower Gross Wt <em>kg</em></span>
+              <div class="result-val" id="w-lower-grossweight">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 2: ROLL DIAMETER ══ -->
+    <section class="tab-panel" id="panel-roll-diameter" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">ROLL DIAMETER CALCULATOR</h2>
+          <p class="panel-desc">Outer diameter from film thickness, length, and core specs</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">OD = 2√[(T·L)/π + (r<sub>core</sub>)²]</span>
+        </div>
+      </div>
+      <div class="calc-layout">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="rd-thickness">Film Thickness <span class="unit-tag">µm</span></label>
+              <input type="number" id="rd-thickness" placeholder="0.020" step="0.001" min="0">
+              <span class="field-hint">e.g. 0.020 mm = 20 µm</span>
+            </div>
+            <div class="field">
+              <label for="rd-length">Film Length <span class="unit-tag">m</span></label>
+              <input type="number" id="rd-length" placeholder="1000" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="rd-coreid">Paper Core ID <span class="unit-tag">mm</span></label>
+              <input type="number" id="rd-coreid" placeholder="76" step="0.5" min="0">
+              <span class="field-hint">Inner bore diameter (e.g. 76 mm)</span>
+            </div>
+            <div class="field">
+              <label for="rd-corethick">Core Wall Thickness <span class="unit-tag">mm</span></label>
+              <input type="number" id="rd-corethick" placeholder="2.5" step="0.1" min="0">
+            </div>
+          </div>
+          <button class="btn-clear" id="rd-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULT</div>
+          <div class="result-main centered">
+            <div class="result-item primary large">
+              <span class="result-label">Roll Outer Diameter <em>mm</em></span>
+              <div class="result-val" id="rd-diameter">—</div>
+            </div>
+          </div>
+          <div class="roll-diagram-wrap">
+            <svg id="roll-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="80" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 3"/>
+              <circle id="svg-outer" cx="100" cy="100" r="72" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+              <circle id="svg-core" cx="100" cy="100" r="36" fill="none" stroke="var(--cyan)" stroke-width="2"/>
+              <circle id="svg-bore" cx="100" cy="100" r="28" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <circle cx="100" cy="100" r="2.5" fill="var(--accent)"/>
+              <line x1="100" y1="100" x2="172" y2="100" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 2" opacity="0.7"/>
+              <line x1="100" y1="100" x2="100" y2="136" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="3 2" opacity="0.7"/>
+              <text x="134" y="90" fill="var(--accent)" font-size="9" font-family="Space Mono, monospace" text-anchor="middle">OD/2</text>
+              <text x="112" y="122" fill="var(--cyan)" font-size="9" font-family="Space Mono, monospace">Core OD/2</text>
+              <text x="100" y="195" fill="var(--text-muted)" font-size="9" font-family="Space Mono, monospace" text-anchor="middle">Schematic — not to scale</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 3: FILM LENGTH FROM DIAMETER ══ -->
+    <section class="tab-panel" id="panel-film-length-geo" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">FILM LENGTH FROM DIAMETER</h2>
+          <p class="panel-desc">Calculate film length from measured roll outer diameter</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">L = (π/T) × (R<sub>od</sub>² − R<sub>core</sub>²)</span>
+        </div>
+      </div>
+      <div class="calc-layout">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="fg-thickness">Film Thickness <span class="unit-tag">µm</span></label>
+              <input type="number" id="fg-thickness" placeholder="0.020" step="0.001" min="0">
+              <span class="field-hint">e.g. 0.020 mm = 20 µm</span>
+            </div>
+            <div class="field">
+              <label for="fg-rolldiameter">Roll Outer Diameter <span class="unit-tag">mm</span></label>
+              <input type="number" id="fg-rolldiameter" placeholder="179" step="0.5" min="0">
+            </div>
+            <div class="field">
+              <label for="fg-coreid">Paper Core ID <span class="unit-tag">mm</span></label>
+              <input type="number" id="fg-coreid" placeholder="76" step="0.5" min="0">
+            </div>
+            <div class="field">
+              <label for="fg-corethick">Core Wall Thickness <span class="unit-tag">mm</span></label>
+              <input type="number" id="fg-corethick" placeholder="2.5" step="0.1" min="0">
+            </div>
+          </div>
+          <button class="btn-clear" id="fg-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULTS</div>
+          <div class="result-main">
+            <div class="result-item primary large">
+              <span class="result-label">Film Length <em>m</em></span>
+              <div class="result-val" id="fg-length-m">—</div>
+            </div>
+            <div class="result-item secondary">
+              <span class="result-label">Film Length <em>mm</em></span>
+              <div class="result-val small" id="fg-length-mm">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 4: FILM LENGTH FROM WEIGHT ══ -->
+    <section class="tab-panel" id="panel-film-length-weight" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">FILM LENGTH FROM WEIGHT</h2>
+          <p class="panel-desc">Derive film length using roll weight, dimensions, and density</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">L = W<sub>net</sub> / (T × W × ρ)</span>
+        </div>
+      </div>
+      <div class="calc-layout">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field-row">
+              <div class="field">
+                <label for="fw-rollweight">Roll Weight <span class="unit-tag">kg</span></label>
+                <input type="number" id="fw-rollweight" placeholder="10.00" step="0.01" min="0">
+              </div>
+              <div class="field">
+                <label for="fw-coreweight">Core Weight <span class="unit-tag">kg</span></label>
+                <input type="number" id="fw-coreweight" placeholder="0.25" step="0.01" min="0">
+              </div>
+            </div>
+            <div class="field">
+              <label for="fw-thickness">Film Thickness <span class="unit-tag">µm</span></label>
+              <input type="number" id="fw-thickness" placeholder="0.020" step="0.001" min="0">
+            </div>
+            <div class="field">
+              <label for="fw-width">Film Width <span class="unit-tag">mm</span></label>
+              <input type="number" id="fw-width" placeholder="500" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="fw-density">Density <span class="unit-tag">g/m³</span></label>
+              <input type="number" id="fw-density" placeholder="920" step="1" min="0">
+            </div>
+          </div>
+          <button class="btn-clear" id="fw-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULTS</div>
+          <div class="result-main">
+            <div class="result-item secondary">
+              <span class="result-label">Net Film Weight <em>kg</em></span>
+              <div class="result-val small" id="fw-netweight">—</div>
+            </div>
+            <div class="result-item primary large">
+              <span class="result-label">Film Length <em>m</em></span>
+              <div class="result-val" id="fw-length">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 5: DECELERATION DISTANCE ══ -->
+    <section class="tab-panel" id="panel-decel" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">DECELERATION DISTANCE</h2>
+          <p class="panel-desc">Stopping distance and time based on velocity and G-force</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">d = v² / (2·G·g) &nbsp;|&nbsp; t = v / (G·g)</span>
+        </div>
+      </div>
+      <div class="calc-layout">
+        <div class="calc-card inputs-card">
+          <div class="card-label">BASE CONDITIONS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="dc-velocity">Velocity <span class="unit-tag">km/h</span></label>
+              <input type="number" id="dc-velocity" placeholder="22" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="dc-gvalue">Deceleration <span class="unit-tag">G</span></label>
+              <input type="number" id="dc-gvalue" placeholder="0.5" step="0.05" min="0">
+              <span class="field-hint">Standard test: 0.5 G</span>
+            </div>
+          </div>
+          <div class="card-label" style="margin-top:1.5rem">BASE RESULTS</div>
+          <div class="decel-base-results">
+            <div class="decel-base-item">
+              <span>Velocity <em>m/s</em></span>
+              <div class="result-val small" id="dc-velocity-ms">—</div>
+            </div>
+            <div class="decel-base-item">
+              <span>Stop Distance <em>m</em></span>
+              <div class="result-val small" id="dc-dist">—</div>
+            </div>
+            <div class="decel-base-item">
+              <span>Stop Time <em>s</em></span>
+              <div class="result-val small" id="dc-time">—</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-add" id="dc-add-row">+ ADD % INCREASE</button>
+            <button class="btn-clear" id="dc-clear">CLEAR</button>
+          </div>
+        </div>
+
+        <div class="calc-card table-card" id="dc-table-wrap">
+          <div class="card-label">VELOCITY INCREASE ANALYSIS</div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>% Increase</th>
+                  <th>New Velocity <em>km/h</em></th>
+                  <th>New Distance <em>m</em></th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="dc-table-body"></tbody>
+            </table>
+          </div>
+          <p class="table-hint" id="dc-table-hint">Add rows above to analyse velocity increase scenarios.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 6: WRAPPING SPEED ══ -->
+    <section class="tab-panel" id="panel-wrap-speed" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">WRAPPING SPEED</h2>
+          <p class="panel-desc">Linear film speed from turntable RPM and load radius</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">ω = 2π·n/60 &nbsp;|&nbsp; v = ω·r</span>
+        </div>
+      </div>
+      <div class="calc-layout single">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="ws-rpm">Turntable Speed <span class="unit-tag">rev/min</span></label>
+              <input type="number" id="ws-rpm" placeholder="10" step="0.5" min="0">
+            </div>
+            <div class="field">
+              <label for="ws-radius">Wrapping Radius <span class="unit-tag">m</span></label>
+              <input type="number" id="ws-radius" placeholder="0.6" step="0.01" min="0">
+              <span class="field-hint">Half of load width (pallet ≈ 0.6 m)</span>
+            </div>
+          </div>
+          <button class="btn-clear" id="ws-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULTS</div>
+          <div class="result-main">
+            <div class="result-item secondary">
+              <span class="result-label">Angular Velocity <em>rad/s</em></span>
+              <div class="result-val small" id="ws-angular">—</div>
+            </div>
+            <div class="result-item primary large">
+              <span class="result-label">Linear Film Speed <em>m/s</em></span>
+              <div class="result-val" id="ws-velocity">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 7: TESTING HEIGHT ══ -->
+    <section class="tab-panel" id="panel-test-height" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">TESTING HEIGHT (ELEVATION)</h2>
+          <p class="panel-desc">Required height of inclined surface for a given G-force test</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">h = L · sin(arctan(G))</span>
+        </div>
+      </div>
+      <div class="calc-layout single">
+        <div class="calc-card inputs-card">
+          <div class="card-label">INPUTS</div>
+          <div class="field-stack">
+            <div class="field">
+              <label for="th-length">Pallet / Structure Length <span class="unit-tag">cm</span></label>
+              <input type="number" id="th-length" placeholder="120" step="1" min="0">
+            </div>
+            <div class="field">
+              <label for="th-gforce">G-Force <span class="unit-tag">G</span></label>
+              <input type="number" id="th-gforce" placeholder="0.5" step="0.05" min="0">
+              <span class="field-hint">Standard test: 0.5 G</span>
+            </div>
+          </div>
+          <button class="btn-clear" id="th-clear">CLEAR ALL</button>
+        </div>
+
+        <div class="calc-card results-card">
+          <div class="card-label">RESULT</div>
+          <div class="result-main centered">
+            <div class="result-item primary large">
+              <span class="result-label">Elevation Height <em>cm</em></span>
+              <div class="result-val" id="th-height">—</div>
+            </div>
+          </div>
+          <div class="incline-diagram">
+            <svg viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="20,100 220,100 20,20" fill="none" stroke="var(--border)" stroke-width="1.5"/>
+              <polygon id="th-svg-tri" points="20,100 220,100 20,20" fill="var(--accent)" opacity="0.08"/>
+              <line x1="20" y1="20" x2="20" y2="100" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="4 2"/>
+              <line x1="20" y1="100" x2="220" y2="100" stroke="var(--accent)" stroke-width="2"/>
+              <line x1="20" y1="20" x2="220" y2="100" stroke="var(--accent)" stroke-width="2"/>
+              <text x="8" y="62" fill="var(--cyan)" font-size="9" font-family="Space Mono" text-anchor="middle">h</text>
+              <text x="122" y="115" fill="var(--accent)" font-size="9" font-family="Space Mono" text-anchor="middle">L</text>
+              <path d="M20,90 L30,90 L30,100" fill="none" stroke="var(--text-muted)" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 8: COEFFICIENT OF FRICTION ══ -->
+    <section class="tab-panel" id="panel-friction" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">COEFFICIENT OF FRICTION</h2>
+          <p class="panel-desc">Calculate µ from inclined plane test measurements</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">µ = tan(arcsin(h / L))</span>
+        </div>
+      </div>
+      <div class="calc-layout full">
+        <div class="calc-card table-card wide">
+          <div class="card-label-row">
+            <div class="card-label">TEST DATA</div>
+            <div class="btn-row-inline">
+              <button class="btn-add" id="cof-add-row">+ ADD TEST</button>
+              <button class="btn-clear sm" id="cof-clear">CLEAR</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Test #</th>
+                  <th>Structure Length <em>cm</em></th>
+                  <th>Height of Elevation <em>cm</em></th>
+                  <th>µ (COF)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="cof-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="calc-card results-card stats-card">
+          <div class="card-label">STATISTICS</div>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <span class="stat-label">Tests</span>
+              <div class="stat-val" id="cof-count">0</div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Average µ</span>
+              <div class="stat-val" id="cof-avg">—</div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Min µ</span>
+              <div class="stat-val" id="cof-min">—</div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Max µ</span>
+              <div class="stat-val" id="cof-max">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- end tab-content -->
+
+  <footer class="app-footer">
+    <span>Stretch Film Calculator Pro</span>
+    <span class="footer-sep">|</span>
+    <span>Modules: Weight · Roll ⌀ · Film Length · Deceleration · Wrapping Speed · Testing Height · Friction</span>
+  </footer>
+
+</div><!-- end app-shell -->
+
+<script src="script.js"></script>
+
+<script>
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg))
+        .catch(err => console.error('SW registration failed:', err));
+    });
+  }
+
+  (function() {
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+
+    // Debug: check if manifest and SW are loaded
+    if (!installBtn) {
+      console.error('Install button element not found! Check id="installBtn" in HTML.');
+    } else {
+      console.log('Install button element found, currently hidden.');
+    }
+
+    // Check if service worker is supported
+    if ('serviceWorker' in navigator) {
+      console.log('Service Worker API supported.');
+    } else {
+      console.warn('Service Worker NOT supported – PWA install not possible.');
+      if (installBtn) installBtn.style.display = 'none';
+      return;
+    }
+
+    // Listen for the beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('beforeinstallprompt event fired!');
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) {
+        installBtn.style.display = 'inline-flex';
+        console.log('Install button now visible.');
+      }
+    });
+
+    // If event never fires after 5 seconds, show a manual info message
+    setTimeout(() => {
+      if (!deferredPrompt && installBtn && installBtn.style.display === 'none') {
+        console.warn('beforeinstallprompt did not fire within 15s. PWA criteria may not be met.');
+        installBtn.style.display = 'inline-flex';
+        installBtn.style.background = '#9AA0A6';
+        installBtn.style.cursor = 'not-allowed';
+        installBtn.textContent = 'ℹ️ PWA not ready';
+        installBtn.disabled = true;
+      }
+    }, 15000);
+
+    // Handle install button click
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+          console.warn('No deferredPrompt – cannot trigger install.');
+          return;
+        }
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User choice: ${outcome}`);
+        deferredPrompt = null;
+        installBtn.style.display = 'none';
+      });
+    }
+
+    // App installed event
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA was installed');
+      if (installBtn) installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+  })();
+</script>
+
+</body>
+</html>
