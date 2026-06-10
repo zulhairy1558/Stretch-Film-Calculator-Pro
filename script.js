@@ -574,6 +574,390 @@ class FrictionCalculator {
   }
 }
 
+/* ─────────────────────────────────────────────────────
+   MODULE 9 — PRE‑STRETCH ANALYSIS (Comparison Table)
+   ───────────────────────────────────────────────────── */
+class PreStretchCalculator {
+  constructor() {
+    this.columnCount = 1;        // Start with only Reference column
+    this.rows = this._defineRows();
+    this.initTable();
+    this.bindEvents();
+  }
+
+  _defineRows() {
+    return [
+      { param: 'Film Thickness', unit: 'µm', key: 'thickness', isInput: true, defaultVal: '' },
+      { param: 'Film Width', unit: 'mm', key: 'width', isInput: true, defaultVal: '' },
+      { param: 'Film Length (Roll)', unit: 'm', key: 'rollLength', isInput: true, defaultVal: '' },
+      { param: 'Film Density', unit: 'g/cm³', key: 'density', isInput: true, defaultVal: '' },
+      { param: 'Total Revolution', unit: '', key: 'revolution', isInput: true, defaultVal: '' },
+      { param: 'Film Usage Weight per Pallet', unit: 'kg', key: 'usageWeight', isInput: true, defaultVal: '' },
+      { param: 'Load Unit Length', unit: 'm', key: 'loadLength', isInput: true, defaultVal: '' },
+      { param: 'Load Unit Width', unit: 'm', key: 'loadWidth', isInput: true, defaultVal: '' },
+      { param: 'Price Per Roll', unit: '', key: 'priceRoll', isInput: true, defaultVal: '', isCurrency: true },
+      { param: 'Total Perimeter', unit: 'm', key: 'perimeter', isInput: false },
+      { param: 'Film Length (no pre-stretch)', unit: 'm', key: 'lenNoStretch', isInput: false },
+      { param: 'Actual Film Length per Pallet', unit: 'm', key: 'actualLen', isInput: false },
+      { param: 'Calculated Weight (no pre-stretch)', unit: 'kg', key: 'calcWeight', isInput: false },
+      { param: 'Actual Pre-Stretch', unit: '%', key: 'preStretch', isInput: false },
+      { param: 'Price of Film Usage (Per Pallet)', unit: '', key: 'pricePerPallet', isInput: false }
+    ];
+  }
+
+  initTable() {
+    const tbody = document.getElementById('ps-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    this.rows.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      // Parameter & Unit columns
+      const tdParam = document.createElement('td');
+      tdParam.textContent = row.param;
+      const tdUnit = document.createElement('td');
+      tdUnit.textContent = row.unit;
+      tr.appendChild(tdParam);
+      tr.appendChild(tdUnit);
+      // Data columns (only Reference initially)
+      for (let col = 0; col < this.columnCount; col++) {
+        const td = this._createCell(row, col);
+        tr.appendChild(td);
+      }
+      // Action column (empty)
+      const tdAction = document.createElement('td');
+      tr.appendChild(tdAction);
+      tbody.appendChild(tr);
+    });
+    this.renderHeader();
+    this.calculateAll();
+  }
+
+  _createCell(row, col) {
+    const td = document.createElement('td');
+    td.className = 'ps-col';
+    if (row.isInput) {
+      if (row.isCurrency) {
+        // Dropdown for currency selection
+        const select = document.createElement('select');
+        select.className = 'ps-input-select';
+        select.innerHTML = `<option value="USD">USD</option>
+                            <option value="MYR">MYR</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>`;
+        select.dataset.rowKey = row.key;
+        select.dataset.col = col;
+        select.addEventListener('change', () => this.calculateAll());
+        td.appendChild(select);
+        // Also store numeric value in a hidden input? We'll use a separate input for amount.
+        const amountInput = document.createElement('input');
+        amountInput.type = 'number';
+        amountInput.className = 'ps-input';
+        amountInput.placeholder = 'Amount';
+        amountInput.step = 'any';
+        amountInput.value = '';
+        amountInput.dataset.rowKey = row.key;
+        amountInput.dataset.col = col;
+        amountInput.addEventListener('input', () => this.calculateAll());
+        td.appendChild(amountInput);
+        // Store reference to both for later retrieval
+        td.dataset.currencySelect = true;
+      } else {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'ps-input';
+        input.step = row.key === 'density' ? '0.001' : 'any';
+        input.value = row.defaultVal;
+        input.dataset.rowKey = row.key;
+        input.dataset.col = col;
+        input.addEventListener('input', () => this.calculateAll());
+        // Tab index: we will manage via JS later – default DOM order is fine but we need to ensure within column.
+        // To make Tab move within same column, we can add a custom handler, but simpler: rely on natural order if we put all inputs of column in the same DOM sequence.
+        td.appendChild(input);
+      }
+    } else {
+      const span = document.createElement('span');
+      span.className = 'ps-result';
+      span.id = `ps-${row.key}-${col}`;
+      span.textContent = '—';
+      td.appendChild(span);
+    }
+    return td;
+  }
+
+  renderHeader() {
+    const headerRow = document.getElementById('ps-header-row');
+    if (!headerRow) return;
+    // Clear existing columns after the first two (Parameter, Unit)
+    while (headerRow.children.length > 2) {
+      headerRow.removeChild(headerRow.lastChild);
+    }
+    // Add column headers
+    for (let i = 0; i < this.columnCount; i++) {
+      const th = document.createElement('th');
+      th.className = 'ps-col';
+      th.textContent = i === 0 ? 'Reference' : `Compare ${i}`;
+      if (i >= 1) {
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '✕';
+        removeBtn.className = 'ps-remove-col';
+        removeBtn.style.marginLeft = '8px';
+        removeBtn.dataset.col = i;
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.removeColumn(i);
+        });
+        th.appendChild(removeBtn);
+      }
+      headerRow.appendChild(th);
+    }
+    // Add empty header for action column
+    const thAction = document.createElement('th');
+    thAction.style.width = '40px';
+    headerRow.appendChild(thAction);
+  }
+
+  addColumn() {
+    if (this.columnCount >= 8) {
+      alert('Maximum 8 comparison columns allowed.');
+      return;
+    }
+    const newColIndex = this.columnCount;
+    this.columnCount++;
+    // Add new cells to each row
+    const tbody = document.getElementById('ps-body');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach((row, rowIdx) => {
+      const rowDef = this.rows[rowIdx];
+      const td = this._createCell(rowDef, newColIndex);
+      // Insert before the last cell (action column)
+      row.insertBefore(td, row.lastChild);
+    });
+    this.renderHeader();
+    this.reindexInputs();
+    this.calculateAll();
+  }
+
+  removeColumn(colIdx) {
+    if (this.columnCount <= 1) {
+      alert('Cannot remove the reference column.');
+      return;
+    }
+    // Remove data cells from each row
+    const tbody = document.getElementById('ps-body');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('.ps-col');
+      if (cells[colIdx]) cells[colIdx].remove();
+    });
+    this.columnCount--;
+    this.renderHeader();
+    this.reindexInputs();
+    this.calculateAll();
+  }
+
+  reindexInputs() {
+    const tbody = document.getElementById('ps-body');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach((row, rowIdx) => {
+      const inputs = row.querySelectorAll('.ps-input');
+      inputs.forEach((input, colIdx) => {
+        input.dataset.col = colIdx;
+      });
+      const selectors = row.querySelectorAll('.ps-input-select');
+      selectors.forEach((sel, colIdx) => {
+        sel.dataset.col = colIdx;
+      });
+      const results = row.querySelectorAll('.ps-result');
+      results.forEach((span, colIdx) => {
+        const key = this.rows[rowIdx].key;
+        span.id = `ps-${key}-${colIdx}`;
+      });
+    });
+  }
+
+  calculateAll() {
+    for (let col = 0; col < this.columnCount; col++) {
+      this.calculateColumn(col);
+    }
+  }
+
+  calculateColumn(col) {
+    // Helper to get numeric input value (including currency amount)
+    const getNumeric = (key) => {
+      const input = document.querySelector(`.ps-input[data-row-key="${key}"][data-col="${col}"]`);
+      if (!input) return 0;
+      let val = parseFloat(input.value);
+      return isNaN(val) ? 0 : val;
+    };
+    // For price per roll, we need both currency and amount. For now, we only need numeric amount.
+    const thickness_um = getNumeric('thickness');
+    const width_mm = getNumeric('width');
+    const rollLength_m = getNumeric('rollLength');
+    const density_gcm3 = getNumeric('density');
+    const revolution = getNumeric('revolution');
+    const usageWeight_kg = getNumeric('usageWeight');
+    const loadLength_m = getNumeric('loadLength');
+    const loadWidth_m = getNumeric('loadWidth');
+    const priceRoll = getNumeric('priceRoll');  // numeric amount
+
+    // Total Perimeter
+    const perimeter_m = 2 * (loadLength_m + loadWidth_m);
+    this.setResult(col, 'perimeter', perimeter_m, 3);
+
+    // Actual Film Length per Pallet
+    const actualLen_m = revolution * perimeter_m;
+    this.setResult(col, 'actualLen', actualLen_m, 3);
+
+    // Film Length (no pre-stretch)
+    let lenNoStretch_m = 0;
+    if (density_gcm3 > 0 && thickness_um > 0 && width_mm > 0 && usageWeight_kg > 0) {
+      lenNoStretch_m = (usageWeight_kg * 1e6) / (density_gcm3 * thickness_um * width_mm);
+    }
+    this.setResult(col, 'lenNoStretch', lenNoStretch_m, 2);
+
+    // Calculated Weight (no pre-stretch)
+    let calcWeight_kg = 0;
+    if (thickness_um > 0 && width_mm > 0 && actualLen_m > 0 && density_gcm3 > 0) {
+      calcWeight_kg = (thickness_um * width_mm * actualLen_m * density_gcm3) / 1e6;
+    }
+    this.setResult(col, 'calcWeight', calcWeight_kg, 3);
+
+    // Actual Pre-Stretch %
+    let preStretch = 0;
+    if (usageWeight_kg > 0) {
+      preStretch = ((calcWeight_kg - usageWeight_kg) / usageWeight_kg) * 100;
+    }
+    this.setResult(col, 'preStretch', preStretch, 2);
+
+    // Price of Film Usage per Pallet (currency is displayed but not converted; just numeric)
+    let pricePerPallet = 0;
+    if (rollLength_m > 0 && priceRoll > 0 && lenNoStretch_m > 0) {
+      pricePerPallet = (priceRoll / rollLength_m) * lenNoStretch_m;
+    }
+    this.setResult(col, 'pricePerPallet', pricePerPallet, 2);
+  }
+
+  setResult(col, key, value, decimals) {
+    const span = document.getElementById(`ps-${key}-${col}`);
+    if (!span) return;
+    if (value > 0 && isFinite(value)) {
+      span.textContent = value.toFixed(decimals);
+    } else {
+      span.textContent = '—';
+    }
+  }
+
+  bindEvents() {
+    const addBtn = document.getElementById('ps-add-column');
+    if (addBtn) addBtn.addEventListener('click', () => this.addColumn());
+    const clearBtn = document.getElementById('ps-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => this.clearAll());
+  }
+
+  clearAll() {
+    const inputs = document.querySelectorAll('#ps-table .ps-input');
+    inputs.forEach(input => { input.value = ''; });
+    const selects = document.querySelectorAll('#ps-table .ps-input-select');
+    selects.forEach(sel => { sel.selectedIndex = 0; });
+    this.calculateAll();
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   MODULE 10 — UNIT CONVERSION
+   ───────────────────────────────────────────────────── */
+class ConversionCalculator {
+  constructor() {
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    // Thickness
+    const micronInput = document.getElementById('conv-micron');
+    const gaugeInput = document.getElementById('conv-gauge');
+    if (micronInput) micronInput.addEventListener('input', () => this.micronToGauge());
+    if (gaugeInput) gaugeInput.addEventListener('input', () => this.gaugeToMicron());
+
+    // Length
+    const feetInput = document.getElementById('conv-feet');
+    const metersInput = document.getElementById('conv-meters');
+    if (feetInput) feetInput.addEventListener('input', () => this.feetToMeters());
+    if (metersInput) metersInput.addEventListener('input', () => this.metersToFeet());
+
+    // Weight
+    const lbInput = document.getElementById('conv-lb');
+    const kgInput = document.getElementById('conv-kg');
+    if (lbInput) lbInput.addEventListener('input', () => this.lbToKg());
+    if (kgInput) kgInput.addEventListener('input', () => this.kgToLb());
+  }
+
+  micronToGauge() {
+    const micron = parseFloat(document.getElementById('conv-micron').value);
+    const gaugeInput = document.getElementById('conv-gauge');
+    if (isNaN(micron)) {
+      if (gaugeInput) gaugeInput.value = '';
+      return;
+    }
+    const gauge = micron * 3.937;
+    if (gaugeInput) gaugeInput.value = gauge.toFixed(2);
+  }
+
+  gaugeToMicron() {
+    const gauge = parseFloat(document.getElementById('conv-gauge').value);
+    const micronInput = document.getElementById('conv-micron');
+    if (isNaN(gauge)) {
+      if (micronInput) micronInput.value = '';
+      return;
+    }
+    const micron = gauge * 0.254;
+    if (micronInput) micronInput.value = micron.toFixed(2);
+  }
+
+  feetToMeters() {
+    const feet = parseFloat(document.getElementById('conv-feet').value);
+    const metersInput = document.getElementById('conv-meters');
+    if (isNaN(feet)) {
+      if (metersInput) metersInput.value = '';
+      return;
+    }
+    const meters = feet * 0.3048;
+    if (metersInput) metersInput.value = meters.toFixed(4);
+  }
+
+  metersToFeet() {
+    const meters = parseFloat(document.getElementById('conv-meters').value);
+    const feetInput = document.getElementById('conv-feet');
+    if (isNaN(meters)) {
+      if (feetInput) feetInput.value = '';
+      return;
+    }
+    const feet = meters * 3.28084;
+    if (feetInput) feetInput.value = feet.toFixed(4);
+  }
+
+  lbToKg() {
+    const lb = parseFloat(document.getElementById('conv-lb').value);
+    const kgInput = document.getElementById('conv-kg');
+    if (isNaN(lb)) {
+      if (kgInput) kgInput.value = '';
+      return;
+    }
+    const kg = lb * 0.45359237;
+    if (kgInput) kgInput.value = kg.toFixed(4);
+  }
+
+  kgToLb() {
+    const kg = parseFloat(document.getElementById('conv-kg').value);
+    const lbInput = document.getElementById('conv-lb');
+    if (isNaN(kg)) {
+      if (lbInput) lbInput.value = '';
+      return;
+    }
+    const lb = kg / 0.45359237;
+    if (lbInput) lbInput.value = lb.toFixed(4);
+  }
+}
+
 
 /* ─────────────────────────────────────────────────────
    APP — orchestrates all modules
@@ -589,6 +973,8 @@ class App {
     this.wrappingSpeed      = new WrappingSpeedCalculator();
     this.testingHeight      = new TestingHeightCalculator();
     this.frictionCalc       = new FrictionCalculator();
+    this.prestretchCalc     = new PreStretchCalculator();
+    this.conversionCalc     = new ConversionCalculator(); 
   }
 }
 
