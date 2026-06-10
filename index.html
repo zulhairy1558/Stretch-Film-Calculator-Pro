@@ -75,6 +75,14 @@
         <svg class="tab-icon" viewBox="0 0 20 20"><path d="M3 17L10 5l7 12" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="17" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         <span>TEST HT</span>
       </button>
+      <button class="tab-btn" role="tab" data-tab="prestretch" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M4 4 L16 4 L16 16 L4 16 Z M8 8 L12 8 L12 12 L8 12 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4 L8 8 M12 4 L12 8" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>PRE‑STRETCH</span>
+      </button>
+      <button class="tab-btn" role="tab" data-tab="conversion" aria-selected="false">
+        <svg class="tab-icon" viewBox="0 0 20 20"><path d="M5 5 L15 15 M15 5 L5 15" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/></svg>
+        <span>CONVERT</span>
+      </button>
       <button class="tab-btn" role="tab" data-tab="friction" aria-selected="false">
         <svg class="tab-icon" viewBox="0 0 20 20"><path d="M3 14l6-8 5 6 3-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>FRICTION</span>
@@ -559,6 +567,106 @@
             <div class="stat-item">
               <span class="stat-label">Max µ</span>
               <div class="stat-val" id="cof-max">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 9: PRE-STRETCH ANALYSIS ══ -->
+    <section class="tab-panel" id="panel-prestretch" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">PRE-STRETCH ANALYSIS</h2>
+          <p class="panel-desc">Compare film usage, actual pre‑stretch, and cost per pallet</p>
+        </div>
+        <div class="formula-pill">
+          <span class="formula-text">Pre‑stretch % = (Calc.Wt – Actual Wt) / Actual Wt × 100</span>
+        </div>
+      </div>
+
+      <div class="calc-layout full">
+        <div class="calc-card table-card wide">
+          <div class="card-label-row">
+            <div class="card-label">COMPARISON TABLE</div>
+            <div class="btn-row-inline">
+              <button class="btn-add" id="ps-add-column">+ ADD COMPARE COLUMN</button>
+              <button class="btn-clear sm" id="ps-clear">CLEAR ALL</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table" id="ps-table">
+              <thead>
+                <tr id="ps-header-row">
+                  <th>Parameter</th>
+                  <th>Unit</th>
+                  <!-- Only the Reference column is initially present.
+                      Compare columns will be added dynamically by JavaScript. -->
+                  <th class="ps-col">Reference</th>
+                  <th style="width:40px"></th>
+                </tr>
+              </thead>
+              <tbody id="ps-body">
+                <!-- Table rows will be generated dynamically by PreStretchCalculator -->
+              </tbody>
+            </table>
+          </div>
+          <p class="table-hint" id="ps-hint">Add up to 8 comparison columns. Values update automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 10: CONVERSION ══ -->
+    <section class="tab-panel" id="panel-conversion" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">UNIT CONVERSION</h2>
+          <p class="panel-desc">Microns ↔ Gauge | Feet ↔ Meters | Pounds ↔ Kilograms</p>
+        </div>
+      </div>
+      <div class="calc-layout single">
+        <div class="calc-card inputs-card">
+          <div class="card-label">THICKNESS CONVERSION</div>
+          <div class="field-stack">
+            <div class="field-row">
+              <div class="field">
+                <label>Microns (µm)</label>
+                <input type="number" id="conv-micron" placeholder="20" step="1">
+              </div>
+              <div class="field">
+                <label>Gauge</label>
+                <input type="number" id="conv-gauge" placeholder="78.74" step="0.01">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="calc-card inputs-card">
+          <div class="card-label">LENGTH CONVERSION</div>
+          <div class="field-stack">
+            <div class="field-row">
+              <div class="field">
+                <label>Feet (ft)</label>
+                <input type="number" id="conv-feet" placeholder="3.28084" step="any">
+              </div>
+              <div class="field">
+                <label>Meters (m)</label>
+                <input type="number" id="conv-meters" placeholder="1.0" step="any">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="calc-card inputs-card">
+          <div class="card-label">WEIGHT CONVERSION</div>
+          <div class="field-stack">
+            <div class="field-row">
+              <div class="field">
+                <label>Pounds (lb)</label>
+                <input type="number" id="conv-lb" placeholder="2.20462" step="any">
+              </div>
+              <div class="field">
+                <label>Kilograms (kg)</label>
+                <input type="number" id="conv-kg" placeholder="1.0" step="any">
+              </div>
             </div>
           </div>
         </div>
