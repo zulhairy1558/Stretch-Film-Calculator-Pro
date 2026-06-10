@@ -840,3 +840,56 @@ body::before {
   filter: brightness(1.05);
   transform: scale(0.98);
 }
+
+/* Pre-Stretch table styling */
+#ps-table th.ps-col,
+#ps-table td.ps-col {
+  min-width: 140px;
+}
+#ps-table input.ps-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+#ps-table input.ps-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.ps-result {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+}
+.ps-remove-col {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+.ps-remove-col:hover {
+  color: var(--red);
+}
+
+/* Currency dropdown */
+.ps-input-select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+/* Conversion result fields (optional) */
+.conv-result {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+}
