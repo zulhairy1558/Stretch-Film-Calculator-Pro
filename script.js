@@ -1395,28 +1395,44 @@ class CostingCalculator {
       if (proposalData) this.selectedProposalId = proposalData.id;
     }
     if (!currentData || !proposalData) return;
+
     const currentSpend = currentData.spend;
     const proposalSpend = proposalData.spend;
     const monthlySavings = currentSpend - proposalSpend;
     const yearlySavings = monthlySavings * 12;
-    const filmUsageKg = currentData.filmUsage - proposalData.filmUsage;
-    const filmUsagePct = currentData.filmUsage > 0 ? (filmUsageKg / currentData.filmUsage) * 100 : 0;
+    const usageKg = currentData.filmUsage - proposalData.filmUsage;
+    const usagePct = currentData.filmUsage > 0 ? (usageKg / currentData.filmUsage) * 100 : 0;
     const spendPct = currentSpend > 0 ? (monthlySavings / currentSpend) * 100 : 0;
 
-    const set = (id, val, dec = 2) => {
+    // Helper to set value with color
+    const setValue = (id, value, decimals = 2, isMonetary = true) => {
       const el = document.getElementById(id);
-      if (el) {
-        if (val > 0 && isFinite(val)) el.textContent = val.toFixed(dec);
-        else el.textContent = '—';
+      if (!el) return;
+      if (value !== undefined && isFinite(value)) {
+        const formatted = isMonetary ? value.toFixed(decimals) : value.toFixed(decimals);
+        el.textContent = formatted;
+        // Apply color based on sign
+        if (value > 0) {
+          el.style.color = 'var(--green)';
+        } else if (value < 0) {
+          el.style.color = 'var(--red)';
+        } else {
+          el.style.color = ''; // default
+        }
+      } else {
+        el.textContent = '—';
+        el.style.color = '';
       }
     };
-    set('cost-current-spend', currentSpend);
-    set('cost-proposal-spend', proposalSpend);
-    set('cost-monthly-savings', monthlySavings);
-    set('cost-yearly-savings', yearlySavings);
-    set('cost-usage-savings-kg', filmUsageKg, 3);
-    set('cost-usage-savings-pct', filmUsagePct, 1);
-    set('cost-spend-savings-pct', spendPct, 1);
+
+    // Set values (always show even if negative)
+    setValue('cost-current-spend', currentSpend);
+    setValue('cost-proposal-spend', proposalSpend);
+    setValue('cost-monthly-savings', monthlySavings);
+    setValue('cost-yearly-savings', yearlySavings);
+    setValue('cost-usage-savings-kg', usageKg, 3);
+    setValue('cost-usage-savings-pct', usagePct, 1);
+    setValue('cost-spend-savings-pct', spendPct, 1);
   }
 
   updateSensitivityTable(allData) {
