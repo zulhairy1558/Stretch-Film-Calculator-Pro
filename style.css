@@ -893,3 +893,47 @@ body::before {
   font-weight: 600;
   color: var(--accent);
 }
+
+/* Costing module v2 */
+#cost-main-table td.cost-col, #cost-main-table th.cost-col {
+  min-width: 140px;
+}
+#cost-main-table input.cost-input, #cost-main-table .cost-result {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+#cost-main-table .cost-result {
+  background: var(--bg-result);
+  color: var(--accent);
+  font-weight: 600;
+  display: inline-block;
+  text-align: center;
+}
+#cost-main-table input.cost-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.cost-header-edit {
+  cursor: pointer;
+  background: var(--accent-dim);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+.cost-header-edit:hover {
+  background: var(--accent);
+  color: white;
+}
+#cost-proposal-select {
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  font-family: var(--font-body);
+}
