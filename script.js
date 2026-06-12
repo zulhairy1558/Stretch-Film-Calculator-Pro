@@ -65,6 +65,107 @@ const Utils = (() => {
 
 
 /* ─────────────────────────────────────────────────────
+   EXPORT HELPER MODULE — shared styling tokens & helpers
+   used by export-capable calculators (Pre-Stretch, Costing).
+   SRP: provides ONLY formatting/branding constants + filename
+   and timestamp helpers. No DOM / data knowledge.
+   ───────────────────────────────────────────────────── */
+const ExportHelper = (() => {
+  // Brand palette (mirrors style.css design tokens, no leading '#')
+  const COLORS = {
+    accent: '1A73E8',
+    dark:   '202124',
+    light:  'F8F9FA',
+    border: 'DADCE0',
+    green:  '34A853',
+    red:    'EA4335',
+    white:  'FFFFFF',
+    muted:  '5F6368'
+  };
+
+  const TIMESTAMP = () => {
+    const d = new Date();
+    return d.toLocaleString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  const FILENAME = (base, ext) => {
+    const d = new Date();
+    const stamp = d.toISOString().slice(0, 10) + '_' + d.getHours() + 'h' + d.getMinutes() + 'm';
+    return `${base}_${stamp}.${ext}`;
+  };
+
+  // Checks the two required libraries are loaded; alerts user if not.
+  const checkLibs = (need) => {
+    if (need === 'excel' && typeof ExcelJS === 'undefined') {
+      alert('Excel export library failed to load. Please check your internet connection and reload the page.');
+      return false;
+    }
+    if (need === 'word' && (typeof docx === 'undefined' || typeof saveAs === 'undefined')) {
+      alert('Word export library failed to load. Please check your internet connection and reload the page.');
+      return false;
+    }
+    if (need === 'excel' && typeof saveAs === 'undefined') {
+      alert('File-save library failed to load. Please check your internet connection and reload the page.');
+      return false;
+    }
+    return true;
+  };
+
+  let docxModule = null;
+
+  const ensureDocx = async () => {
+    // Already loaded
+    if (docxModule) return docxModule;
+    if (typeof docx !== 'undefined') {
+      docxModule = docx;
+      return docxModule;
+    }
+    if (typeof window.docx !== 'undefined') {
+      docxModule = window.docx;
+      return docxModule;
+    }
+
+    // Try dynamic import from reliable CDN
+    const cdnUrls = [
+      'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js',
+      'https://unpkg.com/docx@8.5.0/build/index.js'
+    ];
+
+    for (const url of cdnUrls) {
+      try {
+        const module = await import(url);
+        if (module) {
+          docxModule = module;
+          // Also attach to window for fallback
+          window.docx = module;
+          return docxModule;
+        }
+      } catch (err) {
+        console.warn(`Failed to load from ${url}`, err);
+      }
+    }
+
+    alert(
+      'Word export libraries could not be loaded.\n\n' +
+      'This can happen if you open the file directly from disk (file://).\n\n' +
+      'To fix:\n' +
+      '1. Serve the app using a local web server, e.g.:\n' +
+      '   - Python: "python -m http.server 8000"\n' +
+      '   - Node: "npx serve"\n' +
+      '2. Then open http://localhost:8000\n\n' +
+      'After that, Word export will work correctly.'
+    );
+    return null;
+  };
+
+  return { COLORS, TIMESTAMP, FILENAME, checkLibs, ensureDocx };
+})();
+
+
+/* ─────────────────────────────────────────────────────
    TAB MANAGER — handles tab switching only
    ───────────────────────────────────────────────────── */
 class TabManager {
@@ -576,6 +677,7 @@ class FrictionCalculator {
 
 /* ─────────────────────────────────────────────────────
    MODULE 9 — PRE‑STRETCH ANALYSIS (Comparison Table)
+   Now includes professional Excel & Word export.
    ───────────────────────────────────────────────────── */
 class PreStretchCalculator {
   constructor() {
@@ -852,6 +954,7 @@ class PreStretchCalculator {
     if (addBtn) addBtn.addEventListener('click', () => this.addColumn());
     const clearBtn = document.getElementById('ps-clear');
     if (clearBtn) clearBtn.addEventListener('click', () => this.clearAll());
+    Utils.bindClick('ps-export-excel', () => this.exportToExcel());
   }
 
   clearAll() {
@@ -860,6 +963,97 @@ class PreStretchCalculator {
     const selects = document.querySelectorAll('#ps-table .ps-input-select');
     selects.forEach(sel => { sel.selectedIndex = 0; });
     this.calculateAll();
+  }
+
+  /* ── EXPORT: shared cell-value reader ──────────────── */
+  _getCellValue(rowDef, col) {
+    if (rowDef.isCurrency) {
+      const select = document.querySelector(`.ps-input-select[data-row-key="${rowDef.key}"][data-col="${col}"]`);
+      const input  = document.querySelector(`.ps-input[data-row-key="${rowDef.key}"][data-col="${col}"]`);
+      const curr = select ? select.value : '';
+      const amt  = input && input.value !== '' ? input.value : '';
+      return amt ? `${amt} ${curr}` : '—';
+    }
+    if (rowDef.isInput) {
+      const input = document.querySelector(`.ps-input[data-row-key="${rowDef.key}"][data-col="${col}"]`);
+      return (input && input.value !== '') ? input.value : '—';
+    }
+    const span = document.getElementById(`ps-${rowDef.key}-${col}`);
+    return span ? span.textContent : '—';
+  }
+
+  _columnLabels() {
+    return Array.from({ length: this.columnCount }, (_, i) => (i === 0 ? 'Reference' : `Compare ${i}`));
+  }
+
+  /* ── EXPORT: EXCEL (ExcelJS, fully styled) ─────────── */
+  async exportToExcel() {
+    if (!ExportHelper.checkLibs('excel')) return;
+    const C = ExportHelper.COLORS;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Stretch Film Calculator Pro';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Pre-Stretch Analysis', {
+      views: [{ state: 'frozen', ySplit: 4 }]
+    });
+
+    const totalCols = 2 + this.columnCount;
+
+    // Title bar
+    ws.mergeCells(1, 1, 1, totalCols);
+    const title = ws.getCell(1, 1);
+    title.value = 'PRE-STRETCH ANALYSIS REPORT';
+    title.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF' + C.white } };
+    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.accent } };
+    title.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 32;
+
+    // Subtitle
+    ws.mergeCells(2, 1, 2, totalCols);
+    const sub = ws.getCell(2, 1);
+    sub.value = `Generated: ${ExportHelper.TIMESTAMP()}  |  Stretch Film Calculator Pro`;
+    sub.font = { italic: true, size: 9, color: { argb: 'FF' + C.muted } };
+    sub.alignment = { horizontal: 'center' };
+
+    // Spacer
+    ws.getRow(3).height = 6;
+
+    // Column header row
+    const headers = ['Parameter', 'Unit', ...this._columnLabels()];
+    const headerRow = ws.getRow(4);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, color: { argb: 'FF' + C.white }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.dark } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF' + C.accent } } };
+    });
+    headerRow.height = 22;
+
+    // Data rows
+    this.rows.forEach((rowDef, idx) => {
+      const rowData = [rowDef.param, rowDef.unit];
+      for (let c = 0; c < this.columnCount; c++) rowData.push(this._getCellValue(rowDef, c));
+      const r = ws.addRow(rowData);
+      r.eachCell((cell, colNum) => {
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF' + C.border } } };
+        cell.alignment = { vertical: 'middle', horizontal: colNum >= 3 ? 'center' : 'left' };
+        if (idx % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.light } };
+        if (!rowDef.isInput && colNum >= 3) cell.font = { bold: true, color: { argb: 'FF' + C.accent } };
+        if (colNum === 1) cell.font = { ...(cell.font || {}), bold: true, color: { argb: 'FF' + C.dark } };
+      });
+      r.height = 20;
+    });
+
+    // Column widths
+    ws.getColumn(1).width = 34;
+    ws.getColumn(2).width = 10;
+    for (let c = 3; c <= totalCols; c++) ws.getColumn(c).width = 18;
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/octet-stream' }), ExportHelper.FILENAME('PreStretch_Analysis', 'xlsx'));
   }
 }
 
@@ -958,6 +1152,624 @@ class ConversionCalculator {
   }
 }
 
+/* ─────────────────────────────────────────────────────
+   MODULE 11 — COSTING ANALYSIS v3 (Stable, no recursion)
+   Now includes professional Excel & Word export
+   (Comparison table + Savings Summary + Sensitivity Analysis).
+   ───────────────────────────────────────────────────── */
+class CostingCalculator {
+  constructor() {
+    // Column storage: each column has id, name, type, and input values object
+    this.columns = [
+      { id: 'current', name: 'Current', type: 'current', editableName: false, inputs: {} }
+    ];
+    this.nextId = 1;
+    this.selectedProposalId = null;
+    this.initTable();
+    this.bindEvents();
+    this.calculateAll();
+  }
+
+  // --- Row definitions (static) ---
+  getRowDefinitions() {
+    return [
+      // NEW: Product name row (editable for each column)
+      { label: 'Product', unit: '', key: 'productName', inputFor: ['current', 'proposal'], isProductRow: true },
+      // Existing parameter rows
+      { label: 'Rolls Consumption per Month', unit: 'rolls', key: 'rollsMonth', inputFor: ['current'], calculatedFor: ['proposal'] },
+      { label: 'Cost per Roll', unit: 'USD', key: 'costPerRoll', inputFor: ['current', 'proposal'] },
+      { label: 'Film Usage per Pallet', unit: 'kg', key: 'filmUsage', inputFor: ['current', 'proposal'] },
+      { label: 'Roll Weight', unit: 'kg', key: 'rollWeight', inputFor: ['current', 'proposal'] },
+      { label: 'Cost per KG of film', unit: 'USD', key: 'costPerKg', isCalculated: true },
+      { label: 'Pallets per Roll', unit: 'pallets', key: 'palletsPerRoll', isCalculated: true },
+      { label: 'Cost per Pallet', unit: 'USD', key: 'costPerPallet', isCalculated: true },
+      { label: 'Spend (monthly)', unit: 'USD', key: 'spend', isCalculated: true }
+    ];
+  }
+
+  // --- Table rendering ---
+  initTable() {
+    this.renderHeader();
+    this.renderBody();
+    this.updateProposalSelect();
+  }
+
+  renderHeader() {
+    const thead = document.getElementById('cost-main-header');
+    if (!thead) return;
+    thead.innerHTML = '';
+    const headerRow = document.createElement('tr');
+    const thParam = document.createElement('th');
+    thParam.textContent = 'Parameter';
+    const thUnit = document.createElement('th');
+    thUnit.textContent = 'Unit';
+    headerRow.appendChild(thParam);
+    headerRow.appendChild(thUnit);
+    this.columns.forEach((col, idx) => {
+      const th = document.createElement('th');
+      th.className = 'cost-col';
+      th.textContent = col.name;
+      if (col.type === 'proposal') {
+        const removeBtn = document.createElement('span');
+        removeBtn.textContent = ' ✕';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.marginLeft = '8px';
+        removeBtn.style.color = 'var(--red)';
+        removeBtn.title = 'Remove proposal';
+        removeBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.removeProposal(idx);
+        };
+        th.appendChild(removeBtn);
+        th.style.cursor = 'pointer';
+        th.title = 'Double‑click to rename';
+        th.ondblclick = () => this.renameColumn(idx);
+      }
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+  }
+
+  renderBody() {
+    const tbody = document.getElementById('cost-main-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const rows = this.getRowDefinitions();
+    rows.forEach(rowDef => {
+      const tr = document.createElement('tr');
+      // Parameter cell
+      const tdParam = document.createElement('td');
+      tdParam.textContent = rowDef.label;
+      tr.appendChild(tdParam);
+      // Unit cell
+      const tdUnit = document.createElement('td');
+      tdUnit.textContent = rowDef.unit;
+      tr.appendChild(tdUnit);
+      // Cells for each column
+      this.columns.forEach((col, colIdx) => {
+        const td = document.createElement('td');
+        td.className = 'cost-col';
+        if (rowDef.isProductRow) {
+          // Product name: text input (not number)
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'cost-input';
+          const savedVal = col.inputs['productName'];
+          input.value = (savedVal !== undefined && savedVal !== '') ? savedVal : (col.type === 'current' ? 'Current' : '');
+          input.placeholder = `Enter ${col.name} name`;
+          input.dataset.colId = col.id;
+          input.dataset.rowKey = 'productName';
+          input.addEventListener('input', (e) => {
+            col.inputs['productName'] = e.target.value;
+            // No calculation needed, but we can update header name optionally?
+            // Optional: update column header name to match product name? Not required.
+          });
+          td.appendChild(input);
+        } else if (rowDef.inputFor && rowDef.inputFor.includes(col.type)) {
+          // Numeric input for other parameters
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.step = 'any';
+          input.className = 'cost-input';
+          const savedVal = col.inputs[rowDef.key];
+          input.value = (savedVal !== undefined && savedVal !== '') ? savedVal : '';
+          input.placeholder = 'Enter value';
+          input.dataset.colId = col.id;
+          input.dataset.rowKey = rowDef.key;
+          input.addEventListener('input', (e) => {
+            col.inputs[rowDef.key] = e.target.value;
+            this.calculateAll();
+          });
+          td.appendChild(input);
+        } else if (rowDef.isCalculated || (rowDef.calculatedFor && rowDef.calculatedFor.includes(col.type))) {
+          const span = document.createElement('span');
+          span.className = 'cost-result';
+          span.id = `cost-${rowDef.key}-${col.id}`;
+          span.textContent = '—';
+          td.appendChild(span);
+        } else {
+          td.textContent = '—';
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // --- Data calculation (single pass, no recursion) ---
+  computeAllColumnData() {
+    const colsData = [];
+    // First, compute current column fully (including derived values)
+    const currentCol = this.columns.find(c => c.type === 'current');
+    if (!currentCol) return [];
+    const currentData = this.computeSingleColumnData(currentCol, null);
+    colsData.push(currentData);
+
+    // Then compute each proposal column, using current data for rolls calculation
+    const proposalCols = this.columns.filter(c => c.type === 'proposal');
+    for (let propCol of proposalCols) {
+      const propData = this.computeSingleColumnData(propCol, currentData);
+      colsData.push(propData);
+    }
+    return colsData;
+  }
+
+  computeSingleColumnData(col, currentData) {
+    // Helper to get numeric input value
+    const getNum = (key) => {
+      const val = col.inputs[key];
+      if (val === undefined || val === '') return 0;
+      const n = parseFloat(val);
+      return isNaN(n) ? 0 : n;
+    };
+    const data = {
+      id: col.id,
+      name: col.name,
+      type: col.type,
+      rollsMonth: 0,
+      costPerRoll: getNum('costPerRoll'),
+      filmUsage: getNum('filmUsage'),
+      rollWeight: getNum('rollWeight'),
+      costPerKg: 0,
+      palletsPerRoll: 0,
+      costPerPallet: 0,
+      spend: 0
+    };
+    // Derived values
+    if (data.rollWeight > 0) data.costPerKg = data.costPerRoll / data.rollWeight;
+    if (data.filmUsage > 0 && data.rollWeight > 0) data.palletsPerRoll = data.rollWeight / data.filmUsage;
+    if (data.palletsPerRoll > 0) data.costPerPallet = data.costPerRoll / data.palletsPerRoll;
+
+    // Rolls per month: for current -> from inputs; for proposal -> from current data
+    if (col.type === 'current') {
+      const rollsInput = col.inputs['rollsMonth'];
+      data.rollsMonth = (rollsInput !== undefined && rollsInput !== '') ? parseFloat(rollsInput) || 0 : 0;
+    } else {
+      // Proposal: calculate from current's pallets per roll
+      if (currentData && currentData.palletsPerRoll > 0 && data.palletsPerRoll > 0) {
+        data.rollsMonth = currentData.rollsMonth * (currentData.palletsPerRoll / data.palletsPerRoll);
+      } else {
+        data.rollsMonth = 0;
+      }
+    }
+    data.spend = data.rollsMonth * data.costPerRoll;
+    return data;
+  }
+
+  updateAllResults() {
+    const allData = this.computeAllColumnData();
+    if (allData.length === 0) return;
+    const rows = this.getRowDefinitions();
+    // Update result spans
+    for (let data of allData) {
+      for (let row of rows) {
+        if (row.isCalculated || (row.calculatedFor && row.calculatedFor.includes(data.type))) {
+          const span = document.getElementById(`cost-${row.key}-${data.id}`);
+          if (span) {
+            let val = 0;
+            if (row.key === 'costPerKg') val = data.costPerKg;
+            else if (row.key === 'palletsPerRoll') val = data.palletsPerRoll;
+            else if (row.key === 'costPerPallet') val = data.costPerPallet;
+            else if (row.key === 'spend') val = data.spend;
+            else if (row.key === 'rollsMonth' && data.type === 'proposal') val = data.rollsMonth;
+            if (val > 0 && isFinite(val)) span.textContent = val.toFixed(2);
+            else span.textContent = '—';
+          }
+        }
+      }
+    }
+    // Update summary for selected proposal
+    this.updateSummary(allData);
+    this.updateSensitivityTable(allData);
+  }
+
+  updateSummary(allData) {
+    const select = document.getElementById('cost-proposal-select');
+    if (!select) return;
+    const currentData = allData.find(d => d.type === 'current');
+    let proposalData = null;
+    if (this.selectedProposalId) {
+      proposalData = allData.find(d => d.id === this.selectedProposalId);
+    } else if (select.value) {
+      proposalData = allData.find(d => d.id === select.value);
+      if (proposalData) this.selectedProposalId = proposalData.id;
+    }
+    if (!currentData || !proposalData) return;
+    const currentSpend = currentData.spend;
+    const proposalSpend = proposalData.spend;
+    const monthlySavings = currentSpend - proposalSpend;
+    const yearlySavings = monthlySavings * 12;
+    const filmUsageKg = currentData.filmUsage - proposalData.filmUsage;
+    const filmUsagePct = currentData.filmUsage > 0 ? (filmUsageKg / currentData.filmUsage) * 100 : 0;
+    const spendPct = currentSpend > 0 ? (monthlySavings / currentSpend) * 100 : 0;
+
+    const set = (id, val, dec = 2) => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (val > 0 && isFinite(val)) el.textContent = val.toFixed(dec);
+        else el.textContent = '—';
+      }
+    };
+    set('cost-current-spend', currentSpend);
+    set('cost-proposal-spend', proposalSpend);
+    set('cost-monthly-savings', monthlySavings);
+    set('cost-yearly-savings', yearlySavings);
+    set('cost-usage-savings-kg', filmUsageKg, 3);
+    set('cost-usage-savings-pct', filmUsagePct, 1);
+    set('cost-spend-savings-pct', spendPct, 1);
+  }
+
+  updateSensitivityTable(allData) {
+    const select = document.getElementById('cost-proposal-select');
+    if (!select) return;
+    const currentData = allData.find(d => d.type === 'current');
+    let proposalData = null;
+    if (this.selectedProposalId) {
+      proposalData = allData.find(d => d.id === this.selectedProposalId);
+    } else if (select.value) {
+      proposalData = allData.find(d => d.id === select.value);
+    }
+    if (!currentData || !proposalData) return;
+    if (currentData.palletsPerRoll === 0 || proposalData.palletsPerRoll === 0) return;
+    const variations = [-20, -10, 0, 10, 20];
+    const tbody = document.getElementById('cost-sensitivity-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    for (let pct of variations) {
+      const factor = 1 + pct / 100;
+      const currentRolls = currentData.rollsMonth * factor;
+      const proposalRolls = currentRolls * (currentData.palletsPerRoll / proposalData.palletsPerRoll);
+      const currentSpend = currentRolls * currentData.costPerRoll;
+      const proposalSpend = proposalRolls * proposalData.costPerRoll;
+      const monthlySavings = currentSpend - proposalSpend;
+      const yearlySavings = monthlySavings * 12;
+      const row = tbody.insertRow();
+      row.insertCell().textContent = `${pct > 0 ? '+' : ''}${pct}%`;
+      row.insertCell().textContent = currentRolls.toFixed(1);
+      row.insertCell().textContent = proposalRolls.toFixed(2);
+      row.insertCell().textContent = currentSpend.toFixed(2);
+      row.insertCell().textContent = proposalSpend.toFixed(2);
+      row.insertCell().textContent = monthlySavings.toFixed(2);
+      row.insertCell().textContent = yearlySavings.toFixed(2);
+    }
+  }
+
+  // --- Column management ---
+  addProposal() {
+    const newId = `prop_${this.nextId++}`;
+    const newCol = {
+      id: newId,
+      name: `Proposal ${this.columns.filter(c => c.type === 'proposal').length + 1}`,
+      type: 'proposal',
+      editableName: true,
+      inputs: {}   // empty inputs, no defaults
+    };
+    this.columns.push(newCol);
+    this.renderHeader();
+    this.renderBody();
+    this.updateProposalSelect();
+    // Select the newly added proposal in dropdown
+    this.selectedProposalId = newId;
+    const select = document.getElementById('cost-proposal-select');
+    if (select) select.value = newId;
+    this.calculateAll();
+  }
+
+  removeProposal(colIndex) {
+    const col = this.columns[colIndex];
+    if (!col || col.type !== 'proposal') return;
+    if (this.selectedProposalId === col.id) this.selectedProposalId = null;
+    this.columns.splice(colIndex, 1);
+    this.renderHeader();
+    this.renderBody();
+    this.updateProposalSelect();
+    this.calculateAll();
+  }
+
+  renameColumn(colIndex) {
+    const col = this.columns[colIndex];
+    if (!col.editableName) return;
+    const newName = prompt('Enter new column name:', col.name);
+    if (newName && newName.trim()) {
+      col.name = newName.trim();
+      this.renderHeader();
+      // Re-render body to keep data? Actually data is stored in col.inputs, so just re-render body.
+      this.renderBody();
+      this.updateProposalSelect();
+      this.calculateAll();
+    }
+  }
+
+  updateProposalSelect() {
+    const select = document.getElementById('cost-proposal-select');
+    if (!select) return;
+    select.innerHTML = '';
+    this.columns.forEach(col => {
+      if (col.type === 'proposal') {
+        const option = document.createElement('option');
+        option.value = col.id;
+        option.textContent = col.name;
+        select.appendChild(option);
+      }
+    });
+    if (this.selectedProposalId && [...select.options].some(opt => opt.value === this.selectedProposalId)) {
+      select.value = this.selectedProposalId;
+    } else if (select.options.length > 0) {
+      select.selectedIndex = 0;
+      this.selectedProposalId = select.value;
+    } else {
+      this.selectedProposalId = null;
+    }
+    // Trigger summary update
+    this.calculateAll();
+  }
+
+  clearAll() {
+    // Reset all input values in all columns
+    this.columns.forEach(col => {
+      col.inputs = {};
+    });
+    this.renderBody();   // re-render to clear input fields
+    this.calculateAll();
+  }
+
+  calculateAll() {
+    this.updateAllResults();
+  }
+
+  bindEvents() {
+    const addBtn = document.getElementById('cost-add-proposal');
+    if (addBtn) addBtn.addEventListener('click', () => this.addProposal());
+    const clearBtn = document.getElementById('cost-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => this.clearAll());
+    const select = document.getElementById('cost-proposal-select');
+    if (select) {
+      select.addEventListener('change', (e) => {
+        this.selectedProposalId = e.target.value;
+        this.calculateAll();
+      });
+    }
+    Utils.bindClick('cost-export-excel', () => this.exportToExcel());
+  }
+
+  /* ── EXPORT: shared cell-value reader for main table ── */
+  _getCostCellValue(rowDef, col, allData) {
+    if (rowDef.isProductRow) {
+      const v = col.inputs['productName'];
+      return (v !== undefined && v !== '') ? v : (col.type === 'current' ? 'Current' : col.name);
+    }
+    if (rowDef.inputFor && rowDef.inputFor.includes(col.type)) {
+      const v = col.inputs[rowDef.key];
+      return (v !== undefined && v !== '') ? v : '—';
+    }
+    if (rowDef.isCalculated || (rowDef.calculatedFor && rowDef.calculatedFor.includes(col.type))) {
+      const data = allData.find(d => d.id === col.id);
+      if (!data) return '—';
+      let val = 0;
+      if (rowDef.key === 'costPerKg') val = data.costPerKg;
+      else if (rowDef.key === 'palletsPerRoll') val = data.palletsPerRoll;
+      else if (rowDef.key === 'costPerPallet') val = data.costPerPallet;
+      else if (rowDef.key === 'spend') val = data.spend;
+      else if (rowDef.key === 'rollsMonth') val = data.rollsMonth;
+      return (val > 0 && isFinite(val)) ? val.toFixed(2) : '—';
+    }
+    return '—';
+  }
+
+  _summaryItems() {
+    return [
+      ['Current Spend (monthly)', 'cost-current-spend'],
+      ['Proposal Spend (monthly)', 'cost-proposal-spend'],
+      ['Monthly Savings', 'cost-monthly-savings'],
+      ['Yearly Savings', 'cost-yearly-savings'],
+      ['Film Usage Saving (kg/pallet)', 'cost-usage-savings-kg'],
+      ['Film Usage Saving (%)', 'cost-usage-savings-pct'],
+      ['Spend Saving (%)', 'cost-spend-savings-pct']
+    ];
+  }
+
+  /* ── EXPORT: EXCEL (ExcelJS, multi-sheet, fully styled) ── */
+  async exportToExcel() {
+    if (!ExportHelper.checkLibs('excel')) return;
+    const C = ExportHelper.COLORS;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Stretch Film Calculator Pro';
+    wb.created = new Date();
+
+    const allData = this.computeAllColumnData();
+    const rows = this.getRowDefinitions();
+    const totalCols = 2 + this.columns.length;
+
+    /* ── Sheet 1: Cost Comparison (identical to original) ── */
+    const ws1 = wb.addWorksheet('Cost Comparison', { views: [{ state: 'frozen', ySplit: 4 }] });
+    ws1.mergeCells(1, 1, 1, totalCols);
+    const t1 = ws1.getCell(1, 1);
+    t1.value = 'COSTING ANALYSIS REPORT';
+    t1.font = { size: 16, bold: true, color: { argb: 'FF' + C.white } };
+    t1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.accent } };
+    t1.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws1.getRow(1).height = 32;
+
+    ws1.mergeCells(2, 1, 2, totalCols);
+    const s1 = ws1.getCell(2, 1);
+    s1.value = `Generated: ${ExportHelper.TIMESTAMP()}  |  Stretch Film Calculator Pro`;
+    s1.font = { italic: true, size: 9, color: { argb: 'FF' + C.muted } };
+    s1.alignment = { horizontal: 'center' };
+    ws1.getRow(3).height = 6;
+
+    const headers1 = ['Parameter', 'Unit', ...this.columns.map(c => c.name)];
+    const hRow1 = ws1.getRow(4);
+    headers1.forEach((h, i) => {
+      const cell = hRow1.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, color: { argb: 'FF' + C.white } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.dark } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF' + C.accent } } };
+    });
+    hRow1.height = 22;
+
+    rows.forEach((rowDef, idx) => {
+      const rowData = [rowDef.label, rowDef.unit];
+      this.columns.forEach(col => rowData.push(this._getCostCellValue(rowDef, col, allData)));
+      const r = ws1.addRow(rowData);
+      r.eachCell((cell, colNum) => {
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FF' + C.border } } };
+        cell.alignment = { vertical: 'middle', horizontal: colNum >= 3 ? 'center' : 'left' };
+        if (idx % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.light } };
+        if ((rowDef.isCalculated || rowDef.calculatedFor) && colNum >= 3) {
+          cell.font = { bold: true, color: { argb: 'FF' + C.accent } };
+        }
+        if (colNum === 1) cell.font = { ...(cell.font || {}), bold: true, color: { argb: 'FF' + C.dark } };
+      });
+      r.height = 20;
+    });
+
+    ws1.getColumn(1).width = 32;
+    ws1.getColumn(2).width = 10;
+    for (let c = 3; c <= totalCols; c++) ws1.getColumn(c).width = 18;
+
+    /* ── Sheets for each proposal (with short, unique names) ── */
+    const currentData = allData.find(d => d.type === 'current');
+    const proposals = this.columns.filter(c => c.type === 'proposal');
+
+    let propIndex = 1;
+    for (const propCol of proposals) {
+      const propData = allData.find(d => d.id === propCol.id);
+      if (!propData || !currentData) continue;
+
+      // Short, safe sheet names (max 31 chars)
+      const shortName = propCol.name.length > 12 ? propCol.name.substring(0, 10) + '…' : propCol.name;
+      const savingsSheetName = `Savings - ${shortName}`.substring(0, 31);
+      const sensSheetName = `Sensitivity - ${shortName}`.substring(0, 31);
+
+      // --- Savings Summary Sheet ---
+      let wsSavings;
+      try {
+        wsSavings = wb.addWorksheet(savingsSheetName);
+      } catch(e) {
+        // If name conflict, fallback to index
+        wsSavings = wb.addWorksheet(`Savings - Prop ${propIndex}`);
+      }
+      wsSavings.mergeCells(1, 1, 1, 2);
+      const titleSavings = wsSavings.getCell(1, 1);
+      titleSavings.value = `SAVINGS SUMMARY (${propCol.name})`;
+      titleSavings.font = { size: 14, bold: true, color: { argb: 'FF' + C.white } };
+      titleSavings.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.accent } };
+      titleSavings.alignment = { horizontal: 'center', vertical: 'middle' };
+      wsSavings.getRow(1).height = 28;
+      wsSavings.addRow([]);
+
+      const monthlySavings = currentData.spend - propData.spend;
+      const yearlySavings = monthlySavings * 12;
+      const usageKg = currentData.filmUsage - propData.filmUsage;
+      const usagePct = currentData.filmUsage > 0 ? (usageKg / currentData.filmUsage) * 100 : 0;
+      const spendPct = currentData.spend > 0 ? (monthlySavings / currentData.spend) * 100 : 0;
+
+      const summaryItems = [
+        ['Current Spend (monthly)', currentData.spend],
+        ['Proposal Spend (monthly)', propData.spend],
+        ['Monthly Savings', monthlySavings],
+        ['Yearly Savings', yearlySavings],
+        ['Film Usage Saving (kg/pallet)', usageKg],
+        ['Film Usage Saving (%)', usagePct],
+        ['Spend Saving (%)', spendPct]
+      ];
+
+      summaryItems.forEach(([label, val], idx) => {
+        const r = wsSavings.addRow([label, val.toFixed(2)]);
+        r.getCell(1).font = { bold: true, color: { argb: 'FF' + C.dark } };
+        r.getCell(2).font = { bold: true, color: { argb: 'FF' + C.accent }, size: 12 };
+        r.getCell(2).alignment = { horizontal: 'right' };
+        r.eachCell(cell => {
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FF' + C.border } } };
+          if (idx % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.light } };
+        });
+        r.height = 22;
+      });
+      wsSavings.getColumn(1).width = 34;
+      wsSavings.getColumn(2).width = 22;
+
+      // --- Sensitivity Analysis Sheet ---
+      let wsSens;
+      try {
+        wsSens = wb.addWorksheet(sensSheetName);
+      } catch(e) {
+        wsSens = wb.addWorksheet(`Sensitivity - Prop ${propIndex}`);
+      }
+      const sHeaders = ['Scenario', 'Current Rolls/Month', 'Proposal Rolls Required', 'Current Spend', 'Proposal Spend', 'Monthly Savings', 'Yearly Savings'];
+      wsSens.mergeCells(1, 1, 1, sHeaders.length);
+      const titleSens = wsSens.getCell(1, 1);
+      titleSens.value = `SENSITIVITY ANALYSIS (Rolls per Month Variation) - ${propCol.name}`;
+      titleSens.font = { size: 14, bold: true, color: { argb: 'FF' + C.white } };
+      titleSens.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.accent } };
+      titleSens.alignment = { horizontal: 'center', vertical: 'middle' };
+      wsSens.getRow(1).height = 28;
+
+      const hRowSens = wsSens.getRow(2);
+      sHeaders.forEach((h, i) => {
+        const cell = hRowSens.getCell(i + 1);
+        cell.value = h;
+        cell.font = { bold: true, color: { argb: 'FF' + C.white } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.dark } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      hRowSens.height = 20;
+
+      const variations = [-20, -10, 0, 10, 20];
+      for (let pct of variations) {
+        const factor = 1 + pct / 100;
+        const currentRolls = currentData.rollsMonth * factor;
+        const proposalRolls = currentRolls * (currentData.palletsPerRoll / propData.palletsPerRoll);
+        const currentSpend = currentRolls * currentData.costPerRoll;
+        const proposalSpend = proposalRolls * propData.costPerRoll;
+        const monthlySavingsSens = currentSpend - proposalSpend;
+        const yearlySavingsSens = monthlySavingsSens * 12;
+        const row = wsSens.addRow([
+          `${pct > 0 ? '+' : ''}${pct}%`,
+          currentRolls.toFixed(1),
+          proposalRolls.toFixed(2),
+          currentSpend.toFixed(2),
+          proposalSpend.toFixed(2),
+          monthlySavingsSens.toFixed(2),
+          yearlySavingsSens.toFixed(2)
+        ]);
+        row.eachCell(cell => {
+          cell.alignment = { horizontal: 'center' };
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FF' + C.border } } };
+          if (row.number % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + C.light } };
+        });
+      }
+      wsSens.columns.forEach(col => col.width = 20);
+
+      propIndex++;
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/octet-stream' }), ExportHelper.FILENAME('Costing_Analysis', 'xlsx'));
+  }
+}
+
 
 /* ─────────────────────────────────────────────────────
    APP — orchestrates all modules
@@ -974,7 +1786,8 @@ class App {
     this.testingHeight      = new TestingHeightCalculator();
     this.frictionCalc       = new FrictionCalculator();
     this.prestretchCalc     = new PreStretchCalculator();
-    this.conversionCalc     = new ConversionCalculator(); 
+    this.conversionCalc     = new ConversionCalculator();
+    this.costingCalc        = new CostingCalculator();
   }
 }
 
